@@ -17,4 +17,11 @@ public class ProClient extends Client {
     private String siret;
     private String corporateName;
     private ProClientType proClientType;
+
+    public ProClient(String clientReference, String type, String siret, String corporateName, ProClientType proClientType) {
+        super(clientReference, type);
+        this.siret = siret;
+        this.corporateName = corporateName;
+        this.proClientType = proClientType;
+    }
 }
