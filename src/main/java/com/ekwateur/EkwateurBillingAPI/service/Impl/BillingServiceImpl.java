@@ -22,10 +22,13 @@ import static com.ekwateur.EkwateurBillingAPI.util.BillingRates.*;
 @Slf4j
 public class BillingServiceImpl implements BillingService {
 
+    private static final String CLIENT_REFERENCE_REGEX = "^EKW\\d{8}$";
+
     @Override
     public BigDecimal calculateProBill(ProClientDTO proClientDto, int kWhElectricity, int kWhGas) {
-        log.info("Calcul de la facture pour le client professionnel : {}", proClientDto.clientReference());
+        validateClientReference(proClientDto.clientReference());
 
+        log.info("Calcul de la facture pour le client professionnel : {}", proClientDto.clientReference());
         ProClient proClient = convertToProClient(proClientDto);
         BigDecimal bill = calculateBill(proClient, kWhElectricity, kWhGas);
 
@@ -35,8 +38,9 @@ public class BillingServiceImpl implements BillingService {
 
     @Override
     public BigDecimal calculateIndividualBill(IndividualClientDTO individualClientDto, int kWhElectricity, int kWhGas) {
-        log.info("Calcul de la facture pour le client particulier : {}", individualClientDto.clientReference());
+        validateClientReference(individualClientDto.clientReference());
 
+        log.info("Calcul de la facture pour le client particulier : {}", individualClientDto.clientReference());
         IndividualClient individualClient = convertToIndividualClient(individualClientDto);
         BigDecimal bill = calculateBill(individualClient, kWhElectricity, kWhGas);
 
@@ -58,6 +62,12 @@ public class BillingServiceImpl implements BillingService {
 
         return BigDecimal.valueOf(kWhElectricity).multiply(electricityRate)
                          .add(BigDecimal.valueOf(kWhGas).multiply(gasRate));
+    }
+
+    private void validateClientReference(String clientReference) {
+        if (clientReference == null || !clientReference.matches(CLIENT_REFERENCE_REGEX)) {
+            throw new IllegalArgumentException("La référence client est invalide.");
+        }
     }
 
     private ProClient convertToProClient(ProClientDTO proClientDto) {
