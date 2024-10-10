@@ -1,10 +1,8 @@
 package com.ekwateur.EkwateurBillingAPI.service;
 
-import com.ekwateur.EkwateurBillingAPI.dto.EnergyConsumptionDTO;
-import com.ekwateur.EkwateurBillingAPI.dto.IndividualClientDTO;
-import com.ekwateur.EkwateurBillingAPI.dto.ProClientDTO;
+import com.ekwateur.EkwateurBillingAPI.dto.*;
 
-import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
  * Interface representing the billing service.
@@ -12,7 +10,7 @@ import java.math.BigDecimal;
  */
 public interface BillingService {
 
-    BigDecimal calculateProBill(ProClientDTO proClientDto, int kWhElectricity, int kWhGas);
+    ProBillingDetailsDTO calculateProBill(ProClientDTO proClientDto, int kWhElectricity, int kWhGas, LocalDate billingDate);
 
-    BigDecimal calculateIndividualBill(IndividualClientDTO individualClientDto, int kWhElectricity, int kWhGas);
+    IndividualBillingDetailsDTO calculateIndividualBill(IndividualClientDTO individualClientDto, int kWhElectricity, int kWhGas, LocalDate billingDate);
 }
