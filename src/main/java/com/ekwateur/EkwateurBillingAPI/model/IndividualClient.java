@@ -17,4 +17,12 @@ public class IndividualClient extends Client {
     private Civility civility;
     private String lastName;
     private String firstName;
+
+    public IndividualClient(String clientReference, String type, Civility civility, String lastName, String firstName) {
+        super(clientReference, type);
+        this.civility = civility;
+        this.lastName = lastName;
+        this.firstName = firstName;
+    }
+
 }
