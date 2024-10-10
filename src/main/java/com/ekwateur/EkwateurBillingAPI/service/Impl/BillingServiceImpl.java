@@ -1,16 +1,20 @@
 package com.ekwateur.EkwateurBillingAPI.service.Impl;
 
+import com.ekwateur.EkwateurBillingAPI.dto.IndividualBillingDetailsDTO;
 import com.ekwateur.EkwateurBillingAPI.dto.IndividualClientDTO;
+import com.ekwateur.EkwateurBillingAPI.dto.ProBillingDetailsDTO;
 import com.ekwateur.EkwateurBillingAPI.dto.ProClientDTO;
 import com.ekwateur.EkwateurBillingAPI.enums.ProClientType;
 import com.ekwateur.EkwateurBillingAPI.model.Client;
 import com.ekwateur.EkwateurBillingAPI.model.IndividualClient;
 import com.ekwateur.EkwateurBillingAPI.model.ProClient;
 import com.ekwateur.EkwateurBillingAPI.service.BillingService;
+import com.ekwateur.EkwateurBillingAPI.util.BillingRates;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import static com.ekwateur.EkwateurBillingAPI.util.BillingRates.*;
 
@@ -25,43 +29,72 @@ public class BillingServiceImpl implements BillingService {
     private static final String CLIENT_REFERENCE_REGEX = "^EKW\\d{8}$";
 
     @Override
-    public BigDecimal calculateProBill(ProClientDTO proClientDto, int kWhElectricity, int kWhGas) {
+    public ProBillingDetailsDTO calculateProBill(ProClientDTO proClientDto, int kWhElectricity, int kWhGas, LocalDate billingDate) {
         validateClientReference(proClientDto.clientReference());
 
         log.info("Calcul de la facture pour le client professionnel : {}", proClientDto.clientReference());
-        ProClient proClient = convertToProClient(proClientDto);
-        BigDecimal bill = calculateBill(proClient, kWhElectricity, kWhGas);
+        ProBillingDetailsDTO ProBillDetails = calculateProBillDetails(proClientDto, kWhElectricity, kWhGas, billingDate);
 
-        log.info("Montant total de la facture pour le client professionnel {} est {}", proClientDto.clientReference(), bill);
-        return bill;
+        log.info("Facture pour le client professionnel {} est {}", proClientDto.clientReference(), ProBillDetails);
+        return ProBillDetails;
     }
 
     @Override
-    public BigDecimal calculateIndividualBill(IndividualClientDTO individualClientDto, int kWhElectricity, int kWhGas) {
+    public IndividualBillingDetailsDTO calculateIndividualBill(IndividualClientDTO individualClientDto, int kWhElectricity, int kWhGas, LocalDate billingDate) {
         validateClientReference(individualClientDto.clientReference());
 
         log.info("Calcul de la facture pour le client particulier : {}", individualClientDto.clientReference());
-        IndividualClient individualClient = convertToIndividualClient(individualClientDto);
-        BigDecimal bill = calculateBill(individualClient, kWhElectricity, kWhGas);
+        IndividualBillingDetailsDTO IndividualBillDetails = calculateIndividualBillDetails(individualClientDto, kWhElectricity, kWhGas, billingDate);
 
-        log.info("Montant total de la facture pour le client particulier {} est {}", individualClientDto.clientReference(), bill);
-        return bill;
+        log.info("Facture pour le client particulier {} est {}", individualClientDto.clientReference(), IndividualBillDetails);
+        return IndividualBillDetails;
     }
 
-    private BigDecimal calculateBill(Client client, int kWhElectricity, int kWhGas) {
-        BigDecimal electricityRate;
-        BigDecimal gasRate;
+    private ProBillingDetailsDTO calculateProBillDetails(ProClientDTO proClientDto, int kWhElectricity, int kWhGas, LocalDate billingDate) {
+        BigDecimal electricityRate = proClientDto.proClientType() == ProClientType.HIGH_TURNOVER ?
+                BillingRates.ELECTRICITY_RATE_PRO_HIGH_TURNOVER :
+                BillingRates.ELECTRICITY_RATE_PRO_LOW_TURNOVER;
 
-        if (client instanceof ProClient proClient) {
-            electricityRate = proClient.getProClientType() == ProClientType.HIGH_TURNOVER ? ELECTRICITY_RATE_BUSINESS_HIGH_TURNOVER : ELECTRICITY_RATE_BUSINESS_LOW_TURNOVER;
-            gasRate = proClient.getProClientType() == ProClientType.HIGH_TURNOVER ? GAS_RATE_BUSINESS_HIGH_TURNOVER : GAS_RATE_BUSINESS_LOW_TURNOVER;
-        } else {
-            electricityRate = ELECTRICITY_RATE_INDIVIDUAL;
-            gasRate = GAS_RATE_INDIVIDUAL;
-        }
+        BigDecimal gasRate = proClientDto.proClientType() == ProClientType.HIGH_TURNOVER ?
+                BillingRates.GAS_RATE_PRO_HIGH_TURNOVER :
+                BillingRates.GAS_RATE_PRO_LOW_TURNOVER;
 
-        return BigDecimal.valueOf(kWhElectricity).multiply(electricityRate)
-                         .add(BigDecimal.valueOf(kWhGas).multiply(gasRate));
+        BigDecimal electricityAmount = BigDecimal.valueOf(kWhElectricity).multiply(electricityRate);
+        BigDecimal gasAmount = BigDecimal.valueOf(kWhGas).multiply(gasRate);
+        BigDecimal totalAmount = electricityAmount.add(gasAmount);
+
+        return new ProBillingDetailsDTO(
+                billingDate,
+                proClientDto.clientReference(),
+                proClientDto.corporateName(),
+                electricityRate,
+                gasRate,
+                electricityAmount,
+                gasAmount,
+                totalAmount
+        );
+    }
+
+    private IndividualBillingDetailsDTO calculateIndividualBillDetails(IndividualClientDTO individualClientDto, int kWhElectricity, int kWhGas, LocalDate billingDate) {
+        BigDecimal electricityRate = BillingRates.ELECTRICITY_RATE_INDIVIDUAL;
+        BigDecimal gasRate = BillingRates.GAS_RATE_INDIVIDUAL;
+
+        BigDecimal electricityAmount = BigDecimal.valueOf(kWhElectricity).multiply(electricityRate);
+        BigDecimal gasAmount = BigDecimal.valueOf(kWhGas).multiply(gasRate);
+        BigDecimal totalAmount = electricityAmount.add(gasAmount);
+
+        return new IndividualBillingDetailsDTO(
+                billingDate,
+                individualClientDto.clientReference(),
+                individualClientDto.civility(),
+                individualClientDto.lastName(),
+                individualClientDto.firstName(),
+                electricityRate,
+                gasRate,
+                electricityAmount,
+                gasAmount,
+                totalAmount
+        );
     }
 
     private void validateClientReference(String clientReference) {
@@ -70,23 +103,4 @@ public class BillingServiceImpl implements BillingService {
         }
     }
 
-    private ProClient convertToProClient(ProClientDTO proClientDto) {
-        return new ProClient(
-                proClientDto.clientReference(),
-                "PRO",
-                proClientDto.siret(),
-                proClientDto.corporateName(),
-                proClientDto.proClientType()
-        );
-    }
-
-    private IndividualClient convertToIndividualClient(IndividualClientDTO individualClientDto) {
-        return new IndividualClient(
-                individualClientDto.clientReference(),
-                "INDIVIDUAL",
-                individualClientDto.civility(),
-                individualClientDto.lastName(),
-                individualClientDto.firstName()
-        );
-    }
 }
